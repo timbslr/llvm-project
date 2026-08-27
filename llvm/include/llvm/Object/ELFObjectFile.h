@@ -1323,6 +1323,8 @@ StringRef ELFObjectFile<ELFT>::getFileFormatName() const {
       return "elf32-loongarch";
     case ELF::EM_XTENSA:
       return "elf32-xtensa";
+    case ELF::EM_SEBOS:
+      return "elf32-sebos";
     default:
       return "elf32-unknown";
     }
@@ -1455,6 +1457,14 @@ template <class ELFT> Triple::ArchType ELFObjectFile<ELFT>::getArch() const {
 
   case ELF::EM_XTENSA:
     return Triple::xtensa;
+
+  case ELF::EM_SEBOS:
+    switch (EF.getHeader().e_ident[ELF::EI_CLASS]) {
+    case ELF::ELFCLASS32:
+      return IsLittleEndian ? Triple::sebosel : Triple::sebos;
+    default:
+      report_fatal_error("Invalid ELFCLASS!");
+    }
 
   default:
     return Triple::UnknownArch;

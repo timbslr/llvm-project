@@ -325,6 +325,7 @@ enum {
   EM_VE = 251,            // NEC SX-Aurora VE
   EM_CSKY = 252,          // C-SKY 32-bit processor
   EM_LOONGARCH = 258,     // LoongArch
+  EM_SEBOS = 999
 };
 
 // Object file classes.
@@ -1104,6 +1105,17 @@ enum : unsigned {
 enum {
 #include "ELFRelocs/Xtensa.def"
 };
+
+enum {
+  EF_SEBOS_NOREORDER = 0x00000001, // Don't reorder instructions
+  EF_SEBOS_PIC       = 0x00000002, // Position independent code
+  EF_SEBOS_ARCH_32   = 0x50000000, // SEBOS32 instruction set per linux not elf.h
+  EF_SEBOS_ARCH      = 0xf0000000  // Mask for applying EF_SEBOS_ARCH_ variant
+}
+
+enum {
+  #include "ELFRelocs/Sebos.def"
+}
 
 #undef ELF_RELOC
 

@@ -1,0 +1,15 @@
+#ifndef ELF_RELOC
+#error "ELF_RELOC must be defined"
+#endif
+
+ELF_RELOC(R_SEBOS_NONE,          0)
+ELF_RELOC(R_SEBOS_16,            1)  // absolute 16-bit pointer/address
+ELF_RELOC(R_SEBOS_8,             2)  // absolute 8-bit value
+ELF_RELOC(R_SEBOS_PC16,          3)  // PC-relative 16-bit
+ELF_RELOC(R_SEBOS_PC8,           4)  // PC-relative 8-bit
+ELF_RELOC(R_SEBOS_GPREL16,       5)
+ELF_RELOC(R_SEBOS_GOT16,         6)
+ELF_RELOC(R_SEBOS_CALL16,        7)
+ELF_RELOC(R_SEBOS_RELGOT,        8)
+ELF_RELOC(R_SEBOS_GLOB_DAT,      9)
+ELF_RELOC(R_SEBOS_JUMP_SLOT,    10)

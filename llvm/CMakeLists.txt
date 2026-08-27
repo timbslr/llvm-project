@@ -590,6 +590,7 @@ set(LLVM_ALL_TARGETS
   WebAssembly
   X86
   XCore
+  Sebos
   )
 
 set(LLVM_ALL_EXPERIMENTAL_TARGETS

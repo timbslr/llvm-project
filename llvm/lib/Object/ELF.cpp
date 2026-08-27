@@ -183,6 +183,13 @@ StringRef llvm::object::getELFRelocationTypeName(uint32_t Machine,
       break;
     }
     break;
+  case ELF::EM_SEBOS:
+    switch (Type) {
+#include "llvm/BinaryFormat/ELFRelocs/Sebos.def"
+    default:
+      break;
+    }
+    break;
   default:
     break;
   }

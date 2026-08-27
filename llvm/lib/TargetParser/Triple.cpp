@@ -164,7 +164,12 @@ StringRef Triple::getArchTypeName(ArchType Kind) {
     return "xcore";
   case xtensa:
     return "xtensa";
+  case sebos:
+    return "sebos";
+  case sebosel:
+    return "sebosel";
   }
+   
 
   llvm_unreachable("Invalid ArchType!");
 }
@@ -372,6 +377,12 @@ StringRef Triple::getArchTypePrefix(ArchType Kind) {
 
   case xtensa:
     return "xtensa";
+  
+  case sebos:
+    return "sebos";
+
+  case sebosel:
+    return "sebosel";
   }
 }
 
@@ -524,6 +535,8 @@ Triple::ArchType Triple::getArchTypeForLLVMName(StringRef Name) {
       .Case("loongarch64", loongarch64)
       .Case("dxil", dxil)
       .Case("xtensa", xtensa)
+      .Case("sebos", sebos)
+      .Case("sebosel", sebosel)
       .Default(UnknownArch);
 }
 
@@ -678,6 +691,8 @@ Triple::ArchType Triple::parseArch(StringRef ArchName) {
                   "dxilv1.9"},
                  Triple::dxil)
           .Case("xtensa", Triple::xtensa)
+          .Cases({"sebos", "seboseb", "sebosallegrex"}, Triple::sebos)
+          .Cases({"sebosel", "sebosallegrexel"}, Triple::sebosel)
           .Default(Triple::UnknownArch);
 
   // Some architectures require special parsing logic just to compute the
@@ -1004,6 +1019,8 @@ static Triple::ObjectFormatType getDefaultFormat(const Triple &T) {
   case Triple::ve:
   case Triple::xcore:
   case Triple::xtensa:
+  case Triple::sebos:
+  case Triple::sebosel:
     return Triple::ELF;
 
   case Triple::mipsel:
@@ -1733,6 +1750,8 @@ unsigned Triple::getArchPointerBitWidth(llvm::Triple::ArchType Arch) {
 
   case llvm::Triple::avr:
   case llvm::Triple::msp430:
+  case llvm::Triple::sebos:
+  case llvm::Triple::sebosel:
     return 16;
 
   case llvm::Triple::aarch64_32:
@@ -1843,6 +1862,8 @@ Triple Triple::get32BitArchVariant() const {
   case Triple::msp430:
   case Triple::systemz:
   case Triple::ve:
+  case Triple::sebos:
+  case Triple::sebosel:
     T.setArch(UnknownArch);
     break;
 
@@ -1965,6 +1986,8 @@ Triple Triple::get64BitArchVariant() const {
   case Triple::tce:
   case Triple::xcore:
   case Triple::xtensa:
+  case Triple::sebos:
+  case Triple::sebosel:
     T.setArch(UnknownArch);
     break;
 
@@ -2143,6 +2166,9 @@ Triple Triple::getBigEndianArchVariant() const {
   case Triple::tcele:
     T.setArch(Triple::tce);
     break;
+  case Triple::sebosel:
+    T.setArch(Triple::sebos);
+    break;
   default:
     llvm_unreachable("getBigEndianArchVariant: unknown triple.");
   }
@@ -2198,6 +2224,9 @@ Triple Triple::getLittleEndianArchVariant() const {
   case Triple::tce:
     T.setArch(Triple::tcele);
     break;
+  case Triple::sebos:
+    T.setArch(Triple::sebosel);
+    break;
   default:
     llvm_unreachable("getLittleEndianArchVariant: unknown triple.");
   }
@@ -2251,6 +2280,7 @@ bool Triple::isLittleEndian() const {
   case Triple::x86_64:
   case Triple::xcore:
   case Triple::xtensa:
+  case Triple::sebosel:
     return true;
   default:
     return false;
