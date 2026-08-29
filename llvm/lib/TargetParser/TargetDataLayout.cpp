@@ -673,6 +673,10 @@ std::string Triple::computeDataLayout(StringRef ABIName) const {
     // These are all virtual ISAs with no LLVM backend, and therefore no fixed
     // LLVM data layout.
     return "";
+  case Triple::sebos:
+    return "E-m:e-p:16:16-i8:8-i16:16-a:8-n8";
+  case Triple::sebosel:
+    return "e-m:e-p:16:16-i8:8-i16:16-a:8-n8";
 
   case Triple::UnknownArch:
     return "";

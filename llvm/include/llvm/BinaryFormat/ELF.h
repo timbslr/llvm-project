@@ -1111,11 +1111,11 @@ enum {
   EF_SEBOS_PIC       = 0x00000002, // Position independent code
   EF_SEBOS_ARCH_32   = 0x50000000, // SEBOS32 instruction set per linux not elf.h
   EF_SEBOS_ARCH      = 0xf0000000  // Mask for applying EF_SEBOS_ARCH_ variant
-}
+};
 
 enum {
   #include "ELFRelocs/Sebos.def"
-}
+};
 
 #undef ELF_RELOC
 
