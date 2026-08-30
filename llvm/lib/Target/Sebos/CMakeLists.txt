@@ -13,6 +13,7 @@ add_public_tablegen_target(SebosCommonTableGen)
 add_llvm_target(SebosCodeGen
   SebosTargetMachine.cpp
   SebosRegisterInfo.cpp
+  SebosSubtarget.cpp
 
   DEPENDS
   SebosCommonTableGen
