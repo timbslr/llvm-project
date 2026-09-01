@@ -53,6 +53,7 @@ BitVector SebosRegisterInfo::getReservedRegs(const MachineFunction &MF) const {
 
   // I/O
   Reserved.set(Sebos::SER_RX);
+  Reserved.set(Sebos::SER_TX);
   Reserved.set(Sebos::SEG7);
 
   // Status register.
