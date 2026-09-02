@@ -59,6 +59,9 @@ BitVector SebosRegisterInfo::getReservedRegs(const MachineFunction &MF) const {
   // Status register.
   Reserved.set(Sebos::FLAGS);
 
+  Reserved.set(Sebos::LCD_CTRL);
+  Reserved.set(Sebos::LCD_DATA);
+
   return Reserved;
 }
 

@@ -73,6 +73,9 @@ def SEG7   : SebosReg<0b000, "seg7">;
 
 def FLAGS : SebosReg<0b000, "flags">;
 
+def LCD_CTRL : SebosReg<0b000, "lcd_ctrl">;
+def LCD_DATA : SebosReg<0b001, "lcd_data">;
+
 //===----------------------------------------------------------------------===//
 // Register classes
 //===----------------------------------------------------------------------===//
@@ -80,5 +83,7 @@ def FLAGS : SebosReg<0b000, "flags">;
 def GPR8  : RegisterClass<"Sebos", [i8], 8, (add A, B, C, X, Y, TMP)>;
 def PTR16 : RegisterClass<"Sebos", [i16], 16, (add XY)>;
 def SPECIAL : RegisterClass<"Sebos", [i8], 8, (add SP_L, SP_H, PC_L, PC_H, MAR_L, MAR_H, BUF, IR, SER_RX, SER_TX, SEG7, FLAGS)>;
+def OFFSET : RegisterClass<"Sebos", [i8], 8, (add X, Y)>;
+def LCD : RegisterClass<"Sebos", [i8], 8, (add LCD_CTRL, LCD_DATA)>;
 def READABLE : RegisterClass<"Sebos", [i8], 8, (add GPR8, SP_L, SP_H, PC_L, PC_H, BUF, IR, SER_RX, SEG7, FLAGS)>;
 def DIRECTLY_WRITABLE : RegisterClass<"Sebos", [i8], 8, (add GPR8, PC_L, PC_H, MAR_L, MAR_H, BUF, IR, SER_TX, SEG7)>;
