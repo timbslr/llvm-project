@@ -34,7 +34,7 @@ class SebosSingleWriteRegisterOperandInst<string asmstr, bits<5> opcode, list<Re
   let Inst{2-0} = reg;
 }
 
-class SebosSingleImmediateOperandInst<string asmstr, bits<8> opcode, list<dag> pattern = []> : SebosInst<(outs), (ins imm8:$imm), asmstr, pattern> {
+class SebosSingleImmediateOperandInst<string asmstr, bits<8> opcode, list<dag> pattern = []> : SebosInst<(outs), (ins i8imm:$imm), asmstr, pattern> {
   field bits<16> Inst;
   let Inst{15-8} = opcode;
   let Inst{7-0} = imm;
@@ -48,7 +48,7 @@ class SebosBinaryALUInst<string asmstr, bits<8> opcode, list<dag> pattern = []> 
   let Uses = !listconcat(SebosALUInst.Uses, [TMP]);
 }
 
-class SebosBranchInst<string asmstr, bits<8> opcode, list<dag> pattern = []> : SebosInst<(outs), (ins addr16:$addr), asmstr, pattern>{
+class SebosBranchInst<string asmstr, bits<8> opcode, list<dag> pattern = []> : SebosInst<(outs), (ins i16addr:$addr), asmstr, pattern>{
   let Defs = !listconcat(SebosInst.Defs, [BUF]);
 
   field bits<24> Inst;
@@ -67,8 +67,8 @@ class SebosFlagTestBranchInst<string asmstr, bits<8> opcode, list<dag> pattern =
 
 class SebosMovInst<string asmstr, Register dst, Register src, bits<8> opcode, list<dag> pattern = []> : SebosOperandlessInst<asmstr, opcode, [dst], [src], pattern>;
 
-def imm8 : Operand<i8>;
-def addr16 : Operand<i16>;
+def i8imm : Operand<i8>;
+def i16addr : Operand<i16>;
 
 // ==================================================================================
 
@@ -110,14 +110,14 @@ def RET : SebosOperandlessInst<"ret", 0b00000111, [SP, BUF], [SP]>;
 
 def JMPR : SebosOperandlessInst<"jmpr", 0b00000110, [], [XY]>;
 
-def JMP : SebosInst<(outs), (ins addr16:$addr), "jmp $addr"> {
+def JMP : SebosInst<(outs), (ins i16addr:$addr), "jmp $addr"> {
   let Defs = !listconcat(SebosInst.Defs, [BUF]);
 
   field bits<24> Inst;
   let Inst{23-16} = 0b00000101;
   let Inst{15-0} = addr;
 }
-def JMPIND : SebosInst<(outs), (ins addr16:$addr), "jmpind $addr"> {
+def JMPIND : SebosInst<(outs), (ins i16addr:$addr), "jmpind $addr"> {
   let Defs = !listconcat(SebosInst.Defs, [A, BUF, TMP, FLAGS]);
 
   field bits<24> Inst;
@@ -191,6 +191,7 @@ def LDINDR : SebosSingleReadRegisterOperandInst<"ldindr $reg", 0b11010, [], [XY]
 def STINDR : SebosSingleWriteRegisterOperandInst<"stindr $reg", 0b11111, [], [XY]>;
 
 def PUSH : SebosSingleReadRegisterOperandInst<"push $reg", 0b10010, [SP], [SP]>;
+def PUSHI : SebosSingleImmediateOperandInst<"pushi $imm", 0b10110111, [SP, BUF], [SP]>
 def POP : SebosSingleWriteRegisterOperandInst<"pop $reg", 0b10100, [SP], [SP]>;
 def PEEK : SebosSingleWriteRegisterOperandInst<"peek $reg", 0b10110, [], [SP]>;
 
@@ -201,7 +202,7 @@ def TXSEND : SebosSingleReadRegisterOperandInst<"txsend $reg", 0b01111, [FLAGS, 
 def OUT7SDI : SebosSingleImmediateOperandInst<"out7sdi $imm", 0b00101111, [SEG7], []>;
 def TXSENDI : SebosSingleImmediateOperandInst<"txsendi $imm", 0b01111111, [FLAGS, SER_TX], []>;
 
-def LDSPREL : SebosInst<(outs GPR8:$reg), (ins imm8:$imm), "ldsprel $reg, $imm"> {
+def LDSPREL : SebosInst<(outs GPR8:$reg), (ins i8imm:$imm), "ldsprel $reg, $imm"> {
   field bits<16> Inst;
   let Inst{15-11} = 0b01010;
   let Inst{10-8} = reg;
@@ -210,7 +211,7 @@ def LDSPREL : SebosInst<(outs GPR8:$reg), (ins imm8:$imm), "ldsprel $reg, $imm">
   let Defs = !listconcat(SebosInst.Defs, [FLAGS, A, TMP, BUF]);
   let Uses = !listconcat(SebosInst.Uses, [SP]);
 }
-def STSPREL : SebosInst<(outs), (ins GPR8:$reg, imm8:$imm), "stsprel $reg, $imm"> {
+def STSPREL : SebosInst<(outs), (ins GPR8:$reg, i8imm:$imm), "stsprel $reg, $imm"> {
   field bits<16> Inst;
   let Inst{15-11} = 0b01011;
   let Inst{10-8} = reg;
@@ -220,13 +221,13 @@ def STSPREL : SebosInst<(outs), (ins GPR8:$reg, imm8:$imm), "stsprel $reg, $imm"
   let Uses = !listconcat(SebosInst.Uses, [SP]);
 }
 
-def LI : SebosInst<(outs GPR8:$reg), (ins imm8:$imm), "li $reg, $imm"> {
+def LI : SebosInst<(outs GPR8:$reg), (ins i8imm:$imm), "li $reg, $imm"> {
   field bits<16> Inst;
   let Inst{15-11} = 0b01101;
   let Inst{10-8} = reg;
   let Inst{7-0} = imm;
 }
-def LD : SebosInst<(outs GPR8:$reg), (ins addr16:$addr), "ld $reg, $addr"> {
+def LD : SebosInst<(outs GPR8:$reg), (ins i16addr:$addr), "ld $reg, $addr"> {
   field bits<24> Inst;
   let Inst{23-19} = 0b00010;
   let Inst{18-16} = reg;
@@ -234,7 +235,7 @@ def LD : SebosInst<(outs GPR8:$reg), (ins addr16:$addr), "ld $reg, $addr"> {
 
   let Defs = !listconcat(SebosInst.Defs, [BUF]);
 }
-def ST : SebosInst<(outs), (ins GPR8:$reg, addr16:$addr), "st $reg, $addr"> {
+def ST : SebosInst<(outs), (ins GPR8:$reg, i16addr:$addr), "st $reg, $addr"> {
   field bits<24> Inst;
   let Inst{23-19} = 0b00011;
   let Inst{18-16} = reg;
@@ -243,7 +244,7 @@ def ST : SebosInst<(outs), (ins GPR8:$reg, addr16:$addr), "st $reg, $addr"> {
   let Defs = !listconcat(SebosInst.Defs, [BUF]);
 }
 
-def LDO : SebosInst<(outs GPR8:$reg), (ins OFFSET:$offsetreg, addr16:$addr), "ldo $reg, $offsetreg, $addr"> {
+def LDO : SebosInst<(outs GPR8:$reg), (ins OFFSET:$offsetreg, i16addr:$addr), "ldo $reg, $offsetreg, $addr"> {
   field bits<24> Inst;
   let Inst{23-20} = 0b0011;
   let Inst{19-17} = reg;
@@ -252,7 +253,7 @@ def LDO : SebosInst<(outs GPR8:$reg), (ins OFFSET:$offsetreg, addr16:$addr), "ld
 
   let Defs = !listconcat(SebosInst.Defs, [A, TMP, BUF, FLAGS]);
 }
-def STO : SebosInst<(outs), (ins GPR8:$reg, OFFSET:$offsetreg, addr16:$addr), "sto $reg, $offsetreg, $addr"> {
+def STO : SebosInst<(outs), (ins GPR8:$reg, OFFSET:$offsetreg, i16addr:$addr), "sto $reg, $offsetreg, $addr"> {
   field bits<24> Inst;
   let Inst{23-20} = 0b0100;
   let Inst{19-17} = reg;
@@ -274,7 +275,7 @@ def OUTLCD : SebosInst<(outs), (ins LCD:$lcdreg, GPR8:$reg), "outlcd $lcdreg, $r
   let Inst{3} = lcdreg{0}; // last bit in the lcd register encodes the bit for encoding it
   let Inst{2-0} = reg;
 }
-def OUTLCDI : SebosInst<(outs), (ins LCD:$lcdreg, imm8:$imm), "outlcdi $lcdreg, $imm"> {
+def OUTLCDI : SebosInst<(outs), (ins LCD:$lcdreg, i8imm:$imm), "outlcdi $lcdreg, $imm"> {
   field bits<16> Inst;
   let Inst{15-12} = 0b1000;
   let Inst{11} = lcdreg{0}; // last bit in the lcd register encodes the bit for encoding it
