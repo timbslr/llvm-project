@@ -1,7 +1,7 @@
 
 def SebosInstrInfo : InstrInfo;
 
-def i8imm : Operand<i8>;
+// def i8imm : Operand<i8>; // already defined in llvm/include/llvm/Target/Target.td
 def i16addr : Operand<i16>;
 
 class SebosInst<dag outs, dag ins, string asmstr, list<dag> pattern = []> : Instruction {
@@ -13,20 +13,28 @@ class SebosInst<dag outs, dag ins, string asmstr, list<dag> pattern = []> : Inst
   let Uses = [PC];
 
   let Pattern = pattern;
-  field bits<8> Inst;
+  let Size = 1;
+  field bits<24> Inst;
+  bits<3> reg; // TODO correct? Does it automatically link to reg in subclasses ins/outs?
+  bits<3> offsetreg; // TODO correct? Does it automatically link to offsetreg in subclasses ins/outs?
+  bits<3> lcdreg; // TODO correct? Does it automatically link to lcdreg in subclasses ins/outs?
+  bits<8> imm; // TODO correct? Does it automatically link to imm in subclasses ins/outs?
+  bits<16> addr; // TODO correct? Does it automatically link to addr in subclasses ins/outs?
 }
 
 class SebosOperandlessInst<string asmstr, bits<8> opcode, list<Register> additionalDefs, list<Register> additionalUses, list<dag> pattern = []> : SebosInst<(outs), (ins), asmstr, pattern> {
   let Inst{7-0} = opcode;
-  let Defs = !listconcat(SebosInst.Defs, additionalDefs);
-  let Uses = !listconcat(SebosInst.Uses, additionalUses);
+  let append Defs = additionalDefs;
+  let append Uses = additionalUses;
 }
 
 class SebosSingleRegisterOperandInst<dag outs, dag ins, string asmstr, bits<5> opcode, list<Register> additionalDefs, list<Register> additionalUses, list<dag> pattern> : SebosInst<outs, ins, asmstr, pattern> {
+  bits<3> reg;
+
   let Inst{7-3} = opcode;
 
-  let Defs = !listconcat(SebosInst.Defs, additionalDefs);
-  let Uses = !listconcat(SebosInst.Uses, additionalUses);
+  let append Defs = additionalDefs;
+  let append Uses = additionalUses;
 }
 
 class SebosSingleReadRegisterOperandInst<string asmstr, bits<5> opcode, list<Register> additionalDefs, list<Register> additionalUses, list<dag> pattern = []> : SebosSingleRegisterOperandInst<(outs), (ins GPR8:$reg), asmstr, opcode, additionalDefs, additionalUses, pattern> {
@@ -38,12 +46,12 @@ class SebosSingleWriteRegisterOperandInst<string asmstr, bits<5> opcode, list<Re
 }
 
 class SebosSingleImmediateOperandInst<string asmstr, bits<8> opcode, list<Register> additionalDefs, list<Register> additionalUses, list<dag> pattern = []> : SebosInst<(outs), (ins i8imm:$imm), asmstr, pattern> {
-  field bits<16> Inst;
+  let Size = 2;
   let Inst{15-8} = opcode;
   let Inst{7-0} = imm;
 
-  let Defs = !listconcat(SebosInst.Defs, additionalDefs);
-  let Uses = !listconcat(SebosInst.Uses, additionalUses);
+  let append Defs = additionalDefs;
+  let append Uses = additionalUses;
 }
 
 class SebosALUInst<string asmstr, bits<8> opcode, list<dag> pattern = []> : SebosOperandlessInst<asmstr, opcode, [A, FLAGS], [A], pattern>;
@@ -51,24 +59,24 @@ class SebosALUInst<string asmstr, bits<8> opcode, list<dag> pattern = []> : Sebo
 class SebosUnaryALUInst<string asmstr, bits<8> opcode, list<dag> pattern = []> : SebosALUInst<asmstr, opcode, pattern>;
 
 class SebosBinaryALUInst<string asmstr, bits<8> opcode, list<dag> pattern = []> : SebosALUInst<asmstr, opcode, pattern> {
-  let Uses = !listconcat(SebosALUInst.Uses, [TMP]);
+  let append Uses = [TMP];
 }
 
 class SebosBranchInst<string asmstr, bits<8> opcode, list<dag> pattern = []> : SebosInst<(outs), (ins i16addr:$addr), asmstr, pattern>{
-  let Defs = !listconcat(SebosInst.Defs, [BUF]);
+  let append Defs = [BUF];
 
-  field bits<24> Inst;
+  let Size = 3;
   let Inst{23-16} = opcode;
   let Inst{15-0} = addr;
 }
 
 class SebosCompareAndBranchInst<string asmstr, bits<8> opcode, list<dag> pattern = []> : SebosBranchInst<asmstr, opcode, pattern> {
-  let Defs = !listconcat(SebosBranchInst.Defs, [FLAGS]);
-  let Uses = !listconcat(SebosBranchInst.Uses, [A, TMP]);
+  let append Defs = [FLAGS];
+  let append Uses = [A, TMP];
 }
 
 class SebosFlagTestBranchInst<string asmstr, bits<8> opcode, list<dag> pattern = []> : SebosBranchInst<asmstr, opcode, pattern> {
-  let Uses = !listconcat(SebosBranchInst.Uses, [FLAGS]);
+  let append Uses = [FLAGS];
 }
 
 class SebosMovInst<string asmstr, Register dst, Register src, bits<8> opcode, list<dag> pattern = []> : SebosOperandlessInst<asmstr, opcode, [dst], [src], pattern>;
@@ -98,13 +106,13 @@ class SebosCondBranchPseudo<list<dag> pattern>
 
 def ADD : SebosBinaryALUInst<"add", 0b11000011>;
 def ADDC : SebosBinaryALUInst<"addc", 0b00100100> {
-  let Uses = !listconcat(SebosBinaryALUInst.Uses, [FLAGS]);
+  let append Uses = [FLAGS];
 }
 def ADDISPU : SebosSingleImmediateOperandInst<"addispu $imm", 0b00111111, [SP, FLAGS, A, TMP], [SP]>;
 def ADDPSEUDO : SebosBinaryALUPseudo<add>;
 def SUB : SebosBinaryALUInst<"sub", 0b11000101>;
 def SUBC : SebosBinaryALUInst<"subc", 0b00100101> {
-  let Uses = !listconcat(SebosBinaryALUInst.Uses, [FLAGS]);
+  let append Uses = [FLAGS];
 }
 def SUBPSEUDO : SebosBinaryALUPseudo<sub>;
 def SUBISPU : SebosSingleImmediateOperandInst<"subispu $imm", 0b01001111, [SP, FLAGS, A, TMP], [SP]>;
@@ -121,7 +129,7 @@ def NOTPSEUDO : SebosUnaryALUPseudo<[(set GPR8:$dst, (xor GPR8:$src, -1))]>;
 
 def SHL : SebosUnaryALUInst<"shl", 0b11110010> {
   // no TMP in Uses as TMP is overwritten in the microinstructions, so the old TMP isn't actually being used
-  let Defs = !listconcat(SebosUnaryALUInst.Defs, [TMP]);
+  let append Defs = [TMP];
 }
 def SHLPSEUDO : SebosUnaryALUPseudo<[(set GPR8:$dst, (shl GPR8:$src, (i8 1)))]>;
 def SLR : SebosUnaryALUInst<"slr", 0b11000100>;
@@ -149,16 +157,16 @@ def RET : SebosOperandlessInst<"ret", 0b00000111, [SP, BUF], [SP]>;
 def JMPR : SebosOperandlessInst<"jmpr", 0b00000110, [], [XY]>;
 
 def JMP : SebosInst<(outs), (ins i16addr:$addr), "jmp $addr"> {
-  let Defs = !listconcat(SebosInst.Defs, [BUF]);
+  let append Defs = [BUF];
 
-  field bits<24> Inst;
+  let Size = 3;
   let Inst{23-16} = 0b00000101;
   let Inst{15-0} = addr;
 }
 def JMPIND : SebosInst<(outs), (ins i16addr:$addr), "jmpind $addr"> {
-  let Defs = !listconcat(SebosInst.Defs, [A, BUF, TMP, FLAGS]);
+  let append Defs = [A, BUF, TMP, FLAGS];
 
-  field bits<24> Inst;
+  let Size = 3;
   let Inst{23-16} = 0b00100110;
   let Inst{15-0} = addr;
 }
@@ -255,64 +263,64 @@ def OUT7SDI : SebosSingleImmediateOperandInst<"out7sdi $imm", 0b00101111, [SEG7]
 def TXSENDI : SebosSingleImmediateOperandInst<"txsendi $imm", 0b01111111, [FLAGS, SER_TX], []>;
 
 def LDSPRELU : SebosInst<(outs GPR8:$reg), (ins i8imm:$imm), "ldsprelu $reg, $imm"> {
-  field bits<16> Inst;
+  let Size = 2;
   let Inst{15-11} = 0b01010;
   let Inst{10-8} = reg;
   let Inst{7-0} = imm;
 
-  let Defs = !listconcat(SebosInst.Defs, [FLAGS, A, TMP, BUF]);
-  let Uses = !listconcat(SebosInst.Uses, [SP]);
+  let append Defs = [FLAGS, A, TMP, BUF];
+  let append Uses = [SP];
 }
 def STSPRELU : SebosInst<(outs), (ins GPR8:$reg, i8imm:$imm), "stsprelu $reg, $imm"> {
-  field bits<16> Inst;
+  let Size = 2;
   let Inst{15-11} = 0b01011;
   let Inst{10-8} = reg;
   let Inst{7-0} = imm;
 
-  let Defs = !listconcat(SebosInst.Defs, [FLAGS, A, TMP, C, BUF]);
-  let Uses = !listconcat(SebosInst.Uses, [SP]);
+  let append Defs = [FLAGS, A, TMP, C, BUF];
+  let append Uses = [SP];
 }
 
 def LI : SebosInst<(outs GPR8:$reg), (ins i8imm:$imm), "li $reg, $imm"> {
-  field bits<16> Inst;
+  let Size = 2;
   let Inst{15-11} = 0b01101;
   let Inst{10-8} = reg;
   let Inst{7-0} = imm;
 }
 def LD : SebosInst<(outs GPR8:$reg), (ins i16addr:$addr), "ld $reg, $addr"> {
-  field bits<24> Inst;
+  let Size = 3;
   let Inst{23-19} = 0b00010;
   let Inst{18-16} = reg;
   let Inst{15-0} = addr;
 
-  let Defs = !listconcat(SebosInst.Defs, [BUF]);
+  let append Defs = [BUF];
 }
 def ST : SebosInst<(outs), (ins GPR8:$reg, i16addr:$addr), "st $reg, $addr"> {
-  field bits<24> Inst;
+  let Size = 3;
   let Inst{23-19} = 0b00011;
   let Inst{18-16} = reg;
   let Inst{15-0} = addr;
 
-  let Defs = !listconcat(SebosInst.Defs, [BUF]);
+  let append Defs = [BUF];
 }
 
 def LDO : SebosInst<(outs GPR8:$reg), (ins OFFSET:$offsetreg, i16addr:$addr), "ldo $reg, $offsetreg, $addr"> {
-  field bits<24> Inst;
+  let Size = 3;
   let Inst{23-20} = 0b0011;
   let Inst{19-17} = reg;
   let Inst{16} = offsetreg{0}; // last bit in the register encodes the bit for encoding the offset register 
   let Inst{15-0} = addr;
 
-  let Defs = !listconcat(SebosInst.Defs, [A, TMP, BUF, FLAGS]);
+  let append Defs = [A, TMP, BUF, FLAGS];
 }
 def STO : SebosInst<(outs), (ins GPR8:$reg, OFFSET:$offsetreg, i16addr:$addr), "sto $reg, $offsetreg, $addr"> {
-  field bits<24> Inst;
+  let Size = 3;
   let Inst{23-20} = 0b0100;
   let Inst{19-17} = reg;
   let Inst{16} = offsetreg{0}; // last bit in the register encodes the bit for encoding the offset register 
   let Inst{15-0} = addr;
 
-  let Defs = !listconcat(SebosInst.Defs, [A, TMP, C, BUF, FLAGS]);
+  let append Defs = [A, TMP, C, BUF, FLAGS];
 }
 
 def LCDRDA : SebosInst<(outs), (ins LCD:$lcdreg), "lcdrda $lcdreg"> {
@@ -320,7 +328,7 @@ def LCDRDA : SebosInst<(outs), (ins LCD:$lcdreg), "lcdrda $lcdreg"> {
   let Inst{3} = lcdreg{0}; // last bit in the lcd register encodes the bit for encoding it
   let Inst{2-0} = 0b110;
 
-  let Defs = !listconcat(SebosInst.Defs, [A]);
+  let append Defs = [A];
 }
 def OUTLCD : SebosInst<(outs), (ins LCD:$lcdreg, GPR8:$reg), "outlcd $lcdreg, $reg"> {
   let Inst{7-4} = 0b1000;
@@ -328,7 +336,7 @@ def OUTLCD : SebosInst<(outs), (ins LCD:$lcdreg, GPR8:$reg), "outlcd $lcdreg, $r
   let Inst{2-0} = reg;
 }
 def OUTLCDI : SebosInst<(outs), (ins LCD:$lcdreg, i8imm:$imm), "outlcdi $lcdreg, $imm"> {
-  field bits<16> Inst;
+  let Size = 2;
   let Inst{15-12} = 0b1000;
   let Inst{11} = lcdreg{0}; // last bit in the lcd register encodes the bit for encoding it
   let Inst{10-8} = 0b111;
