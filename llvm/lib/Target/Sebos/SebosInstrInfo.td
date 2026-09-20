@@ -82,6 +82,16 @@ let isPseudo = 1, isCodeGenOnly = 1, hasSideEffects = 0 in {
       : SebosInst<(outs GPR8:$dst), (ins GPR8:$src), "", pattern>;
 }
 
+// Conditional-branch pseudos: like the ALU pseudos, these exist because
+// the real BEQ/BNE/... instructions internally compute their own A-TMP
+// comparison, so the operands need to be moved into A/TMP before the real
+// branch runs -- exactly the same problem SebosBinaryALUPseudo solves for
+// arithmetic, just for control flow instead. Expansion happens in
+// SebosInstrInfo::expandPostRAPseudo, mirroring expandBinaryALUPseudo.
+let isPseudo = 1, isCodeGenOnly = 1, isBranch = 1, isTerminator = 1 in
+class SebosCondBranchPseudo<list<dag> pattern>
+    : SebosInst<(outs), (ins GPR8:$lhs, GPR8:$rhs, i16addr:$dst), "", pattern>;
+
 // ==================================================================================
 
 // TODO: add patterns
@@ -175,6 +185,20 @@ def BRXRDYS : SebosFlagTestBranchInst<"brxrdys $addr", 0b11100000>;
 def BRXRDYC : SebosFlagTestBranchInst<"brxrdyc $addr", 0b11100001>;
 def BTXRDYS : SebosFlagTestBranchInst<"btxrdys $addr", 0b11101000>;
 def BTXRDYC : SebosFlagTestBranchInst<"btxrdyc $addr", 0b11101001>;
+
+// Conditional-branch pseudos -- one per condition code, expanded (like
+// the ALU pseudos) into an A/TMP-populating sequence followed by the
+// real branch instruction.
+def BEQPSEUDO  : SebosCondBranchPseudo<[(brcond (i8 (seteq  GPR8:$lhs, GPR8:$rhs)), bb:$dst)]>;
+def BNEPSEUDO  : SebosCondBranchPseudo<[(brcond (i8 (setne  GPR8:$lhs, GPR8:$rhs)), bb:$dst)]>;
+def BLTPSEUDO  : SebosCondBranchPseudo<[(brcond (i8 (setlt  GPR8:$lhs, GPR8:$rhs)), bb:$dst)]>;
+def BLTUPSEUDO : SebosCondBranchPseudo<[(brcond (i8 (setult GPR8:$lhs, GPR8:$rhs)), bb:$dst)]>;
+def BLEPSEUDO  : SebosCondBranchPseudo<[(brcond (i8 (setle  GPR8:$lhs, GPR8:$rhs)), bb:$dst)]>;
+def BLEUPSEUDO : SebosCondBranchPseudo<[(brcond (i8 (setule GPR8:$lhs, GPR8:$rhs)), bb:$dst)]>;
+def BGEPSEUDO  : SebosCondBranchPseudo<[(brcond (i8 (setge  GPR8:$lhs, GPR8:$rhs)), bb:$dst)]>;
+def BGEUPSEUDO : SebosCondBranchPseudo<[(brcond (i8 (setuge GPR8:$lhs, GPR8:$rhs)), bb:$dst)]>;
+def BGTPSEUDO  : SebosCondBranchPseudo<[(brcond (i8 (setgt  GPR8:$lhs, GPR8:$rhs)), bb:$dst)]>;
+def BGTUPSEUDO : SebosCondBranchPseudo<[(brcond (i8 (setugt GPR8:$lhs, GPR8:$rhs)), bb:$dst)]>;
 
 def MOVATMP   : SebosMovInst<"mov TMP, A", TMP, A, 0b10011000>;
 def MOVAB     : SebosMovInst<"mov B, A", B, A, 0b10011001>;
@@ -310,3 +334,39 @@ def OUTLCDI : SebosInst<(outs), (ins LCD:$lcdreg, i8imm:$imm), "outlcdi $lcdreg,
   let Inst{10-8} = 0b111;
   let Inst{7-0} = imm;
 }
+
+//===----------------------------------------------------------------------===//
+// Target-specific SDNodes
+//===----------------------------------------------------------------------===//
+
+def SDT_SebosRet : SDTypeProfile<0, 0, []>;
+def SebosRetFlag : SDNode<"SebosISD::RET_FLAG", SDT_SebosRet,
+                           [SDNPHasChain, SDNPOptInGlue, SDNPVariadic]>;
+
+//===----------------------------------------------------------------------===//
+// Patterns
+//===----------------------------------------------------------------------===//
+
+// Materializing an 8-bit constant.
+def : Pat<(i8 imm:$imm), (LI imm:$imm)>;
+
+// Global variable / function address access.
+def : Pat<(i8 (load tglobaladdr:$addr)), (LD tglobaladdr:$addr)>;
+def : Pat<(store GPR8:$val, tglobaladdr:$addr), (ST GPR8:$val, tglobaladdr:$addr)>;
+
+// Stack-relative access -- SebosAddrFI's C++ half (SelectAddrFI) lives in
+// SebosISelDAGToDAG.cpp.
+def SebosAddrFI : ComplexPattern<iPTR, 2, "SelectAddrFI", [frameindex, add]>;
+
+def : Pat<(i8 (load SebosAddrFI:$addr)), (LDSPRELU SebosAddrFI:$addr)>;
+def : Pat<(store GPR8:$val, SebosAddrFI:$addr), (STSPRELU GPR8:$val, SebosAddrFI:$addr)>;
+
+// Control flow.
+def : Pat<(SebosRetFlag), (RET)>;
+def : Pat<(br bb:$dst), (JMP bb:$dst)>;
+
+// Note: BZS/BZC/BCS/BCC/BNS/BNC/BVS/BVC/BRXRDYS/BRXRDYC/BTXRDYS/BTXRDYC
+// (SebosFlagTestBranchInst-derived) intentionally have no patterns here --
+// no ordinary IR shape corresponds to "branch on the ready flag last set
+// by some earlier instruction." These become reachable once exposed as
+// target intrinsics.
