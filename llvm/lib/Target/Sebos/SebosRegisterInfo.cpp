@@ -65,14 +65,35 @@ BitVector SebosRegisterInfo::getReservedRegs(const MachineFunction &MF) const {
   return Reserved;
 }
 
-bool SebosRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator MI,
+bool SebosRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
                                              int SPAdj,
                                              unsigned FIOperandNum,
                                              RegScavenger *RS) const {
-  // Placeholder -- real implementation depends on SebosFrameLowering's
-  // stack layout (frame-pointer-relative vs SP-relative addressing),
-  // which hasn't been designed yet.
-  llvm_unreachable("eliminateFrameIndex not yet implemented");
+  MachineInstr &MI = *II;
+  MachineFunction &MF = *MI.getParent()->getParent();
+  const SebosFrameLowering *TFI = static_cast<const SebosFrameLowering *>(
+      MF.getSubtarget().getFrameLowering());
+
+  int FrameIndex = MI.getOperand(FIOperandNum).getIndex();
+  Register FrameReg;
+  StackOffset Offset = TFI->getFrameIndexReference(MF, FrameIndex, FrameReg);
+
+  // getFrameIndexReference() gives the fixed, compile-time-known distance
+  // below SP at the point of the prologue. SPAdj accounts for any further
+  // stack movement (e.g. call-argument pushes) that has happened between
+  // then and this specific instruction -- it must be folded in too.
+  int64_t TotalOffset = Offset.getFixed() + SPAdj;
+
+  assert(TotalOffset >= 0 && TotalOffset <= 255 &&
+         "Sebos: frame offset out of range for an 8-bit LDSPRELU/STSPRELU "
+         "immediate -- large frames need multi-instruction offset "
+         "materialization, not yet implemented");
+
+  MI.getOperand(FIOperandNum)
+      .ChangeToRegister(FrameReg, /*isDef=*/false);
+  MI.getOperand(FIOperandNum + 1).setImm(TotalOffset);
+
+  return false; // no further register-scavenging needed for this fixup
 }
 
 Register SebosRegisterInfo::getFrameRegister(const MachineFunction &MF) const {

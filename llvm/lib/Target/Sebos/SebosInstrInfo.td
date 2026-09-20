@@ -1,6 +1,9 @@
 
 def SebosInstrInfo : InstrInfo;
 
+def i8imm : Operand<i8>;
+def i16addr : Operand<i16>;
+
 class SebosInst<dag outs, dag ins, string asmstr, list<dag> pattern = []> : Instruction {
   let Namespace = "Sebos";
   let OutOperandList = outs;
@@ -34,10 +37,13 @@ class SebosSingleWriteRegisterOperandInst<string asmstr, bits<5> opcode, list<Re
   let Inst{2-0} = reg;
 }
 
-class SebosSingleImmediateOperandInst<string asmstr, bits<8> opcode, list<dag> pattern = []> : SebosInst<(outs), (ins i8imm:$imm), asmstr, pattern> {
+class SebosSingleImmediateOperandInst<string asmstr, bits<8> opcode, list<Register> additionalDefs, list<Register> additionalUses, list<dag> pattern = []> : SebosInst<(outs), (ins i8imm:$imm), asmstr, pattern> {
   field bits<16> Inst;
   let Inst{15-8} = opcode;
   let Inst{7-0} = imm;
+
+  let Defs = !listconcat(SebosInst.Defs, additionalDefs);
+  let Uses = !listconcat(SebosInst.Uses, additionalUses);
 }
 
 class SebosALUInst<string asmstr, bits<8> opcode, list<dag> pattern = []> : SebosOperandlessInst<asmstr, opcode, [A, FLAGS], [A], pattern>;
@@ -67,8 +73,14 @@ class SebosFlagTestBranchInst<string asmstr, bits<8> opcode, list<dag> pattern =
 
 class SebosMovInst<string asmstr, Register dst, Register src, bits<8> opcode, list<dag> pattern = []> : SebosOperandlessInst<asmstr, opcode, [dst], [src], pattern>;
 
-def i8imm : Operand<i8>;
-def i16addr : Operand<i16>;
+let isPseudo = 1, isCodeGenOnly = 1, hasSideEffects = 0 in {
+  class SebosBinaryALUPseudo<SDNode node>
+      : SebosInst<(outs GPR8:$dst), (ins GPR8:$src1, GPR8:$src2), "",
+                  [(set GPR8:$dst, (node GPR8:$src1, GPR8:$src2))]>;
+
+  class SebosUnaryALUPseudo<list<dag> pattern>
+      : SebosInst<(outs GPR8:$dst), (ins GPR8:$src), "", pattern>;
+}
 
 // ==================================================================================
 
@@ -78,22 +90,38 @@ def ADD : SebosBinaryALUInst<"add", 0b11000011>;
 def ADDC : SebosBinaryALUInst<"addc", 0b00100100> {
   let Uses = !listconcat(SebosBinaryALUInst.Uses, [FLAGS]);
 }
+def ADDISPU : SebosSingleImmediateOperandInst<"addispu $imm", 0b00111111, [SP, FLAGS, A, TMP], [SP]>;
+def ADDPSEUDO : SebosBinaryALUPseudo<add>;
 def SUB : SebosBinaryALUInst<"sub", 0b11000101>;
 def SUBC : SebosBinaryALUInst<"subc", 0b00100101> {
   let Uses = !listconcat(SebosBinaryALUInst.Uses, [FLAGS]);
 }
+def SUBPSEUDO : SebosBinaryALUPseudo<sub>;
+def SUBISPU : SebosSingleImmediateOperandInst<"subispu $imm", 0b01001111, [SP, FLAGS, A, TMP], [SP]>;
 def AND : SebosBinaryALUInst<"and", 0b11100010>;
+def ANDPSEUDO : SebosBinaryALUPseudo<and>;
 def OR : SebosBinaryALUInst<"or", 0b11100011>;
+def ORPSEUDO  : SebosBinaryALUPseudo<or>;
 def XOR : SebosBinaryALUInst<"xor", 0b11110011>;
+def XORPSEUDO : SebosBinaryALUPseudo<xor>;
 def NOT : SebosUnaryALUInst<"not", 0b11100100>;
+// NOT has no dedicated ISD node -- LLVM canonicalizes bitwise-not as
+// xor with an all-ones constant
+def NOTPSEUDO : SebosUnaryALUPseudo<[(set GPR8:$dst, (xor GPR8:$src, -1))]>;
+
 def SHL : SebosUnaryALUInst<"shl", 0b11110010> {
   // no TMP in Uses as TMP is overwritten in the microinstructions, so the old TMP isn't actually being used
   let Defs = !listconcat(SebosUnaryALUInst.Defs, [TMP]);
 }
+def SHLPSEUDO : SebosUnaryALUPseudo<[(set GPR8:$dst, (shl GPR8:$src, (i8 1)))]>;
 def SLR : SebosUnaryALUInst<"slr", 0b11000100>;
+def SLRPSEUDO : SebosUnaryALUPseudo<[(set GPR8:$dst, (srl GPR8:$src, (i8 1)))]>;
 def SAR : SebosUnaryALUInst<"sar", 0b11110000>;
+def SARPSEUDO : SebosUnaryALUPseudo<[(set GPR8:$dst, (sra GPR8:$src, (i8 1)))]>;
 def ROR : SebosUnaryALUInst<"ror", 0b11110100>;
+def RORPSEUDO : SebosUnaryALUPseudo<[(set GPR8:$dst, (rotr GPR8:$src, (i8 1)))]>;
 def ROL : SebosUnaryALUInst<"rol", 0b11110001>;
+def ROLPSEUDO : SebosUnaryALUPseudo<[(set GPR8:$dst, (rotl GPR8:$src, (i8 1)))]>;
 
 def INCX : SebosOperandlessInst<"incx", 0b01100100, [X], [X]>;
 def INCY : SebosOperandlessInst<"incy", 0b01100110, [Y], [Y]>;
@@ -148,50 +176,50 @@ def BRXRDYC : SebosFlagTestBranchInst<"brxrdyc $addr", 0b11100001>;
 def BTXRDYS : SebosFlagTestBranchInst<"btxrdys $addr", 0b11101000>;
 def BTXRDYC : SebosFlagTestBranchInst<"btxrdyc $addr", 0b11101001>;
 
-def MOVATMP   : SebosMovInst<"mov A, TMP", A, TMP, 0b10011000>;
-def MOVAB     : SebosMovInst<"mov A, B", A, B, 0b10011001>;
-def MOVAC     : SebosMovInst<"mov A, C", A, C, 0b10011010>;
-def MOVAX     : SebosMovInst<"mov A, X", A, X, 0b10011011>;
-def MOVAY     : SebosMovInst<"mov A, Y", A, Y, 0b10011100>;
-def MOVTMPA   : SebosMovInst<"mov TMP, A", TMP, A, 0b10101000>;
-def MOVTMPB   : SebosMovInst<"mov TMP, B", TMP, B, 0b10101001>;
-def MOVTMPC   : SebosMovInst<"mov TMP, C", TMP, C, 0b10101010>;
-def MOVTMPX   : SebosMovInst<"mov TMP, X", TMP, X, 0b10101011>;
-def MOVTMPY   : SebosMovInst<"mov TMP, Y", TMP, Y, 0b10101100>;
-def MOVBA     : SebosMovInst<"mov B, A", B, A, 0b10111000>;
-def MOVBTMP   : SebosMovInst<"mov B, TMP", B, TMP, 0b10111001>;
-def MOVBC     : SebosMovInst<"mov B, C", B, C, 0b10111010>;
-def MOVBX     : SebosMovInst<"mov B, X", B, X, 0b10111011>;
-def MOVBY     : SebosMovInst<"mov B, Y", B, Y, 0b10111100>;
-def MOVCA     : SebosMovInst<"mov C, A", C, A, 0b11001000>;
-def MOVCTMP   : SebosMovInst<"mov C, TMP", C, TMP, 0b11001001>;
-def MOVCB     : SebosMovInst<"mov C, B", C, B, 0b11001010>;
-def MOVCX     : SebosMovInst<"mov C, X", C, X, 0b11001011>;
-def MOVCY     : SebosMovInst<"mov C, Y", C, Y, 0b11001100>;
-def MOVXA     : SebosMovInst<"mov X, A", X, A, 0b11011000>;
-def MOVXTMP   : SebosMovInst<"mov X, TMP", X, TMP, 0b11011001>;
-def MOVXB     : SebosMovInst<"mov X, B", X, B, 0b11011010>;
-def MOVXC     : SebosMovInst<"mov X, C", X, C, 0b11011011>;
-def MOVXY     : SebosMovInst<"mov X, Y", X, Y, 0b11011100>;
-def MOVYA     : SebosMovInst<"mov Y, A", Y, A, 0b10011101>;
-def MOVYTMP   : SebosMovInst<"mov Y, TMP", Y, TMP, 0b10101101>;
-def MOVYB     : SebosMovInst<"mov Y, B", Y, B, 0b10111101>;
-def MOVYC     : SebosMovInst<"mov Y, C", Y, C, 0b11001101>;
-def MOVYX     : SebosMovInst<"mov Y, X", Y, X, 0b11011101>;
-def MOVABUF   : SebosMovInst<"mov A, BUF", A, BUF, 0b10101111>;
-def MOVBUFTMP : SebosMovInst<"mov BUF, TMP", BUF, TMP, 0b10111111>;
-def MOVFA     : SebosMovInst<"mov F, A", FLAGS, A, 0b10011110>;
-def MOVFTMP   : SebosMovInst<"mov F, TMP", FLAGS, TMP, 0b10101110>;
-def MOVFB     : SebosMovInst<"mov F, B,", FLAGS, B, 0b10111110>;
-def MOVFC     : SebosMovInst<"mov F, C,", FLAGS, C, 0b11001110>;
-def MOVFX     : SebosMovInst<"mov F, X,", FLAGS, X, 0b11011110>;
-def MOVFY     : SebosMovInst<"mov F, Y,", FLAGS, Y, 0b11101110>;
+def MOVATMP   : SebosMovInst<"mov TMP, A", TMP, A, 0b10011000>;
+def MOVAB     : SebosMovInst<"mov B, A", B, A, 0b10011001>;
+def MOVAC     : SebosMovInst<"mov C, A", C, A, 0b10011010>;
+def MOVAX     : SebosMovInst<"mov X, A", X, A, 0b10011011>;
+def MOVAY     : SebosMovInst<"mov Y, A", Y, A, 0b10011100>;
+def MOVTMPA   : SebosMovInst<"mov A, TMP", A, TMP, 0b10101000>;
+def MOVTMPB   : SebosMovInst<"mov B, TMP", B, TMP, 0b10101001>;
+def MOVTMPC   : SebosMovInst<"mov C, TMP", C, TMP, 0b10101010>;
+def MOVTMPX   : SebosMovInst<"mov X, TMP", X, TMP, 0b10101011>;
+def MOVTMPY   : SebosMovInst<"mov Y, TMP", Y, TMP, 0b10101100>;
+def MOVBA     : SebosMovInst<"mov A, B", A, B, 0b10111000>;
+def MOVBTMP   : SebosMovInst<"mov TMP, B", TMP, B, 0b10111001>;
+def MOVBC     : SebosMovInst<"mov C, B", C, B, 0b10111010>;
+def MOVBX     : SebosMovInst<"mov X, B", X, B, 0b10111011>;
+def MOVBY     : SebosMovInst<"mov Y, B", Y, B, 0b10111100>;
+def MOVCA     : SebosMovInst<"mov A, C", A, C, 0b11001000>;
+def MOVCTMP   : SebosMovInst<"mov TMP, C", TMP, C, 0b11001001>;
+def MOVCB     : SebosMovInst<"mov B, C", B, C, 0b11001010>;
+def MOVCX     : SebosMovInst<"mov X, C", X, C, 0b11001011>;
+def MOVCY     : SebosMovInst<"mov Y, C", Y, C, 0b11001100>;
+def MOVXA     : SebosMovInst<"mov A, X", A, X, 0b11011000>;
+def MOVXTMP   : SebosMovInst<"mov TMP, X", TMP, X, 0b11011001>;
+def MOVXB     : SebosMovInst<"mov B, X", B, X, 0b11011010>;
+def MOVXC     : SebosMovInst<"mov C, X", C, X, 0b11011011>;
+def MOVXY     : SebosMovInst<"mov Y, X", Y, X, 0b11011100>;
+def MOVYA     : SebosMovInst<"mov A, Y", A, Y, 0b10011101>;
+def MOVYTMP   : SebosMovInst<"mov TMP, Y", TMP, Y, 0b10101101>;
+def MOVYB     : SebosMovInst<"mov B, Y", B, Y, 0b10111101>;
+def MOVYC     : SebosMovInst<"mov C, Y", C, Y, 0b11001101>;
+def MOVYX     : SebosMovInst<"mov X, Y", X, Y, 0b11011101>;
+def MOVABUF   : SebosMovInst<"mov BUF, A", BUF, A, 0b10101111>;
+def MOVBUFTMP : SebosMovInst<"mov TMP, BUF", TMP, BUF, 0b10111111>;
+def MOVFA     : SebosMovInst<"mov A, F", A, FLAGS, 0b10011110>;
+def MOVFTMP   : SebosMovInst<"mov TMP, F", TMP, FLAGS, 0b10101110>;
+def MOVFB     : SebosMovInst<"mov B, F", B, FLAGS, 0b10111110>;
+def MOVFC     : SebosMovInst<"mov C, F", C, FLAGS, 0b11001110>;
+def MOVFX     : SebosMovInst<"mov X, F", X, FLAGS, 0b11011110>;
+def MOVFY     : SebosMovInst<"mov Y, F", Y, FLAGS, 0b11101110>;
 
-def LDINDR : SebosSingleReadRegisterOperandInst<"ldindr $reg", 0b11010, [], [XY]>;
-def STINDR : SebosSingleWriteRegisterOperandInst<"stindr $reg", 0b11111, [], [XY]>;
+def LDINDR : SebosSingleWriteRegisterOperandInst<"ldindr $reg", 0b11010, [], [XY]>;
+def STINDR : SebosSingleReadRegisterOperandInst<"stindr $reg", 0b11111, [], [XY]>;
 
 def PUSH : SebosSingleReadRegisterOperandInst<"push $reg", 0b10010, [SP], [SP]>;
-def PUSHI : SebosSingleImmediateOperandInst<"pushi $imm", 0b10110111, [SP, BUF], [SP]>
+def PUSHI : SebosSingleImmediateOperandInst<"pushi $imm", 0b10110111, [SP, BUF], [SP]>;
 def POP : SebosSingleWriteRegisterOperandInst<"pop $reg", 0b10100, [SP], [SP]>;
 def PEEK : SebosSingleWriteRegisterOperandInst<"peek $reg", 0b10110, [], [SP]>;
 
@@ -202,7 +230,7 @@ def TXSEND : SebosSingleReadRegisterOperandInst<"txsend $reg", 0b01111, [FLAGS, 
 def OUT7SDI : SebosSingleImmediateOperandInst<"out7sdi $imm", 0b00101111, [SEG7], []>;
 def TXSENDI : SebosSingleImmediateOperandInst<"txsendi $imm", 0b01111111, [FLAGS, SER_TX], []>;
 
-def LDSPREL : SebosInst<(outs GPR8:$reg), (ins i8imm:$imm), "ldsprel $reg, $imm"> {
+def LDSPRELU : SebosInst<(outs GPR8:$reg), (ins i8imm:$imm), "ldsprelu $reg, $imm"> {
   field bits<16> Inst;
   let Inst{15-11} = 0b01010;
   let Inst{10-8} = reg;
@@ -211,7 +239,7 @@ def LDSPREL : SebosInst<(outs GPR8:$reg), (ins i8imm:$imm), "ldsprel $reg, $imm"
   let Defs = !listconcat(SebosInst.Defs, [FLAGS, A, TMP, BUF]);
   let Uses = !listconcat(SebosInst.Uses, [SP]);
 }
-def STSPREL : SebosInst<(outs), (ins GPR8:$reg, i8imm:$imm), "stsprel $reg, $imm"> {
+def STSPRELU : SebosInst<(outs), (ins GPR8:$reg, i8imm:$imm), "stsprelu $reg, $imm"> {
   field bits<16> Inst;
   let Inst{15-11} = 0b01011;
   let Inst{10-8} = reg;

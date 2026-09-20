@@ -14,6 +14,8 @@ add_llvm_target(SebosCodeGen
   SebosTargetMachine.cpp
   SebosRegisterInfo.cpp
   SebosSubtarget.cpp
+  SebosInstrInfo.cpp
+  SebosFrameLowering.cpp
 
   DEPENDS
   SebosCommonTableGen
