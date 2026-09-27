@@ -21,6 +21,8 @@
 
 namespace llvm {
 
+FunctionPass *createSebosISelDag(SebosTargetMachine &TM, CodeGenOptLevel OptLevel);
+
 class SebosTargetMachine : public CodeGenTargetMachineImpl {
   std::unique_ptr<TargetLoweringObjectFile> TLOF;
   SebosSubtarget Subtarget;

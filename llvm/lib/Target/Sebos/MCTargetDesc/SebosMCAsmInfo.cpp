@@ -11,23 +11,15 @@
 
 using namespace llvm;
 
-SebosMCAsmInfo::SebosMCAsmInfo(const Triple &TT) {
-  CodePointerSize = 2;       // 16-bit addresses
+SebosMCAsmInfo::SebosMCAsmInfo(const Triple &TT, const MCTargetOptions &Options)
+    : MCAsmInfoELF(Options) {
+  CodePointerSize = 2;
   CalleeSaveStackSlotSize = 1;
-
   CommentString = ";";
-  PrivateGlobalPrefix = ".L";
-  PrivateLabelPrefix = ".L";
-
   UsesELFSectionDirectiveForBSS = true;
   ZeroDirective = "\t.zero\t";
-
   Data8bitsDirective = "\t.byte\t";
   Data16bitsDirective = "\t.word\t";
-  // No 32/64-bit data directives should ever be emitted -- there's
-  // nothing on this target that would need them, so deliberately not
-  // set (left at MCAsmInfo's defaults, which just won't be exercised).
-
-  SupportsDebugInformation = false; // revisit once/if debug info matters
+  SupportsDebugInformation = false;
   ExceptionsType = ExceptionHandling::None;
 }

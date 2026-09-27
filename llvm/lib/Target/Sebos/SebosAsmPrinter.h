@@ -20,8 +20,6 @@ public:
       : AsmPrinter(TM, std::move(Streamer)) {}
 
   StringRef getPassName() const override { return "Sebos Assembly Printer"; }
-
-  void emitInstruction(const MachineInstr *MI) override;
 };
 
 } // namespace llvm

@@ -12,6 +12,7 @@
 #include "llvm/CodeGen/MachineFunction.h"
 #include "llvm/CodeGen/MachineInstrBuilder.h"
 #include "llvm/CodeGen/TargetFrameLowering.h"
+#include "MCTargetDesc/SebosMCTargetDesc.h"
 
 #define GET_REGINFO_TARGET_DESC
 #include "SebosGenRegisterInfo.inc"
@@ -102,8 +103,7 @@ Register SebosRegisterInfo::getFrameRegister(const MachineFunction &MF) const {
   return Sebos::SP; // TODO edit if a dedicated frame pointer register should be introduced later 
 }
 
-const TargetRegisterClass *
-SebosRegisterInfo::getPointerRegClass(const MachineFunction &MF,
-                                       unsigned Kind) const {
+// SebosRegisterInfo.cpp
+const TargetRegisterClass * SebosRegisterInfo::getPointerRegClass(unsigned Kind) const {
   return &Sebos::PTR16RegClass;
 }

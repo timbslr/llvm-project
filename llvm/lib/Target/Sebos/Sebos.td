@@ -3,6 +3,7 @@
 include "llvm/Target/Target.td"
 include "SebosRegisterInfo.td"
 include "SebosInstrInfo.td"
+include "SebosCallingConv.td"
 
 defm : RemapAllTargetPseudoPointerOperands<PTR16>;
 

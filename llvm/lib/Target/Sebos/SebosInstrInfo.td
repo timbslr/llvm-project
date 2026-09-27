@@ -3,6 +3,7 @@ def SebosInstrInfo : InstrInfo;
 
 // def i8imm : Operand<i8>; // already defined in llvm/include/llvm/Target/Target.td
 def i16addr : Operand<i16>;
+def branchTarget : Operand<OtherVT>;
 
 class SebosInst<dag outs, dag ins, string asmstr, list<dag> pattern = []> : Instruction {
   let Namespace = "Sebos";
@@ -62,7 +63,7 @@ class SebosBinaryALUInst<string asmstr, bits<8> opcode, list<dag> pattern = []> 
   let append Uses = [TMP];
 }
 
-class SebosBranchInst<string asmstr, bits<8> opcode, list<dag> pattern = []> : SebosInst<(outs), (ins i16addr:$addr), asmstr, pattern>{
+class SebosBranchInst<string asmstr, bits<8> opcode, list<dag> pattern = []> : SebosInst<(outs), (ins branchTarget:$addr), asmstr, pattern>{
   let append Defs = [BUF];
 
   let Size = 3;
@@ -98,7 +99,7 @@ let isPseudo = 1, isCodeGenOnly = 1, hasSideEffects = 0 in {
 // SebosInstrInfo::expandPostRAPseudo, mirroring expandBinaryALUPseudo.
 let isPseudo = 1, isCodeGenOnly = 1, isBranch = 1, isTerminator = 1 in
 class SebosCondBranchPseudo<list<dag> pattern>
-    : SebosInst<(outs), (ins GPR8:$lhs, GPR8:$rhs, i16addr:$dst), "", pattern>;
+    : SebosInst<(outs), (ins GPR8:$lhs, GPR8:$rhs, branchTarget:$dst), "", pattern>;
 
 // ==================================================================================
 
@@ -156,14 +157,14 @@ def RET : SebosOperandlessInst<"ret", 0b00000111, [SP, BUF], [SP]>;
 
 def JMPR : SebosOperandlessInst<"jmpr", 0b00000110, [], [XY]>;
 
-def JMP : SebosInst<(outs), (ins i16addr:$addr), "jmp $addr"> {
+def JMP : SebosInst<(outs), (ins branchTarget:$addr), "jmp $addr"> {
   let append Defs = [BUF];
 
   let Size = 3;
   let Inst{23-16} = 0b00000101;
   let Inst{15-0} = addr;
 }
-def JMPIND : SebosInst<(outs), (ins i16addr:$addr), "jmpind $addr"> {
+def JMPIND : SebosInst<(outs), (ins branchTarget:$addr), "jmpind $addr"> {
   let append Defs = [A, BUF, TMP, FLAGS];
 
   let Size = 3;
@@ -378,3 +379,8 @@ def : Pat<(br bb:$dst), (JMP bb:$dst)>;
 // no ordinary IR shape corresponds to "branch on the ready flag last set
 // by some earlier instruction." These become reachable once exposed as
 // target intrinsics.
+
+let isPseudo = 1, isCodeGenOnly = 1 in {
+def ADJCALLSTACKDOWN : SebosInst<(outs), (ins i16imm:$amt1, i16imm:$amt2), "">;
+def ADJCALLSTACKUP   : SebosInst<(outs), (ins i16imm:$amt1, i16imm:$amt2), "">;
+}

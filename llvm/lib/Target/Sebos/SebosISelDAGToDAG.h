@@ -11,6 +11,8 @@
 
 #include "SebosTargetMachine.h"
 #include "llvm/CodeGen/SelectionDAGISel.h"
+#include "MCTargetDesc/SebosMCTargetDesc.h"
+#include "SebosISelLowering.h"   // for SebosISD::RET_FLAG
 
 namespace llvm {
 

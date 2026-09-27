@@ -17,7 +17,7 @@ using namespace llvm;
 
 SebosTargetLowering::SebosTargetLowering(const TargetMachine &TM,
                                           const SebosSubtarget &STI)
-    : TargetLowering(TM), Subtarget(STI) {
+    : TargetLowering(TM, STI), Subtarget(STI) {
   addRegisterClass(MVT::i8, &Sebos::GPR8RegClass);
   addRegisterClass(MVT::i16, &Sebos::PTR16RegClass);
 

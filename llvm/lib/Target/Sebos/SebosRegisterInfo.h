@@ -32,9 +32,7 @@ struct SebosRegisterInfo : public SebosGenRegisterInfo {
 
   Register getFrameRegister(const MachineFunction &MF) const override;
 
-  const TargetRegisterClass *
-  getPointerRegClass(const MachineFunction &MF,
-                      unsigned Kind = 0) const override;
+  const TargetRegisterClass *getPointerRegClass(unsigned Kind = 0) const override;
 };
 
 } // namespace llvm

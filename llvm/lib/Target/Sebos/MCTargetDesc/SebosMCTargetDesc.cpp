@@ -13,8 +13,10 @@
 #include "llvm/MC/MCRegisterInfo.h"
 #include "llvm/MC/MCSubtargetInfo.h"
 #include "llvm/MC/TargetRegistry.h"
+#include "SebosInstPrinter.h"
 
 using namespace llvm;
+using namespace llvm::Sebos;
 
 #define GET_INSTRINFO_MC_DESC
 #include "SebosGenInstrInfo.inc"
@@ -45,7 +47,7 @@ createSebosMCSubtargetInfo(const Triple &TT, StringRef CPU, StringRef FS) {
 static MCAsmInfo *createSebosMCAsmInfo(const MCRegisterInfo &MRI,
                                         const Triple &TT,
                                         const MCTargetOptions &Options) {
-  return new SebosMCAsmInfo(TT);
+  return new SebosMCAsmInfo(TT, Options);
 }
 
 extern "C" LLVM_EXTERNAL_VISIBILITY void LLVMInitializeSebosTargetMC() {
@@ -54,4 +56,11 @@ extern "C" LLVM_EXTERNAL_VISIBILITY void LLVMInitializeSebosTargetMC() {
   TargetRegistry::RegisterMCInstrInfo(T, createSebosMCInstrInfo);
   TargetRegistry::RegisterMCRegInfo(T, createSebosMCRegisterInfo);
   TargetRegistry::RegisterMCSubtargetInfo(T, createSebosMCSubtargetInfo);
+
+  TargetRegistry::RegisterMCInstPrinter(
+      T, [](const Triple &, unsigned, const MCAsmInfo &MAI,
+            const MCInstrInfo &MII, const MCRegisterInfo &MRI) {
+        return static_cast<MCInstPrinter *>(
+            new SebosInstPrinter(MAI, MII, MRI));
+      });
 }

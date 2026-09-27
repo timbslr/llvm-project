@@ -17,7 +17,7 @@ class Triple;
 
 class SebosMCAsmInfo : public MCAsmInfoELF {
 public:
-  explicit SebosMCAsmInfo(const Triple &TT);
+  explicit SebosMCAsmInfo(const Triple &TT, const MCTargetOptions &Options);
 };
 
 } // namespace llvm

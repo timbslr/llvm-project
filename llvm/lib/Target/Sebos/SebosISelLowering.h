@@ -15,6 +15,13 @@
 
 namespace llvm {
 
+namespace SebosISD {
+enum NodeType {
+  FIRST_NUMBER = ISD::BUILTIN_OP_END,
+  RET_FLAG,
+};
+} // namespace SebosISD
+
 class SebosSubtarget;
 
 class SebosTargetLowering : public TargetLowering {

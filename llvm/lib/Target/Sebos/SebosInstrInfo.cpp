@@ -28,12 +28,11 @@ SebosInstrInfo::SebosInstrInfo()
 // Register copies -- built from the MOV* table (movData.json).
 //===----------------------------------------------------------------------===//
 
-void SebosInstrInfo::copyPhysReg(MachineBasicBlock &MBB,
-                                  MachineBasicBlock::iterator MI,
-                                  const DebugLoc &DL, MCRegister DestReg,
-                                  MCRegister SrcReg, bool KillSrc,
-                                  bool RenamableDest,
-                                  bool RenamableSrc) const {
+void SebosInstrInfo::copyPhysReg(MachineBasicBlock &MBB, MachineBasicBlock::iterator MI,
+                  const DebugLoc &DL, Register DestReg, Register SrcReg,
+                  bool KillSrc, bool RenamableDest = false,
+                  bool RenamableSrc = false) const {
+
   unsigned Opc = 0;
 
   // clang-format off
@@ -124,12 +123,12 @@ void SebosInstrInfo::copyPhysReg(MachineBasicBlock &MBB,
 //===----------------------------------------------------------------------===//
 
 void SebosInstrInfo::storeRegToStackSlot(MachineBasicBlock &MBB,
-                                          MachineBasicBlock::iterator MI,
-                                          Register SrcReg, bool isKill,
-                                          int FrameIndex,
-                                          const TargetRegisterClass *RC,
-                                          const TargetRegisterInfo *TRI,
-                                          Register VReg) const {
+                          MachineBasicBlock::iterator MI, Register SrcReg,
+                          bool isKill, int FrameIndex,
+                          const TargetRegisterClass *RC, Register VReg,
+                          MachineInstr::MIFlag Flags =
+                              MachineInstr::NoFlags) const {
+
   DebugLoc DL = MI != MBB.end() ? MI->getDebugLoc() : DebugLoc();
   BuildMI(MBB, MI, DL, get(Sebos::STSPRELU))
       .addReg(SrcReg, getKillRegState(isKill))
@@ -138,11 +137,11 @@ void SebosInstrInfo::storeRegToStackSlot(MachineBasicBlock &MBB,
 }
 
 void SebosInstrInfo::loadRegFromStackSlot(MachineBasicBlock &MBB,
-                                           MachineBasicBlock::iterator MI,
-                                           Register DestReg, int FrameIndex,
-                                           const TargetRegisterClass *RC,
-                                           const TargetRegisterInfo *TRI,
-                                           Register VReg) const {
+                           MachineBasicBlock::iterator MI, Register DestReg,
+                           int FrameIndex, const TargetRegisterClass *RC,
+                           Register VReg, unsigned SubIdx,
+                           MachineInstr::MIFlag Flags =
+                               MachineInstr::NoFlags) const {
   DebugLoc DL = MI != MBB.end() ? MI->getDebugLoc() : DebugLoc();
   BuildMI(MBB, MI, DL, get(Sebos::LDSPRELU), DestReg)
       .addFrameIndex(FrameIndex)
@@ -303,6 +302,16 @@ bool SebosInstrInfo::expandPostRAPseudo(MachineInstr &MI) const {
   case Sebos::SARPSEUDO: return expandUnaryALUPseudo(MI, Sebos::SAR);
   case Sebos::RORPSEUDO: return expandUnaryALUPseudo(MI, Sebos::ROR);
   case Sebos::ROLPSEUDO: return expandUnaryALUPseudo(MI, Sebos::ROL);
+  case Sebos::BEQPSEUDO:  return expandCondBranchPseudo(MI, Sebos::BEQ);
+  case Sebos::BNEPSEUDO:  return expandCondBranchPseudo(MI, Sebos::BNE);
+  case Sebos::BLTPSEUDO:  return expandCondBranchPseudo(MI, Sebos::BLT);
+  case Sebos::BLTUPSEUDO: return expandCondBranchPseudo(MI, Sebos::BLTU);
+  case Sebos::BLEPSEUDO:  return expandCondBranchPseudo(MI, Sebos::BLE);
+  case Sebos::BLEUPSEUDO: return expandCondBranchPseudo(MI, Sebos::BLEU);
+  case Sebos::BGEPSEUDO:  return expandCondBranchPseudo(MI, Sebos::BGE);
+  case Sebos::BGEUPSEUDO: return expandCondBranchPseudo(MI, Sebos::BGEU);
+  case Sebos::BGTPSEUDO:  return expandCondBranchPseudo(MI, Sebos::BGT);
+  case Sebos::BGTUPSEUDO: return expandCondBranchPseudo(MI, Sebos::BGTU);
   default: return false;
   }
 }
@@ -357,6 +366,28 @@ bool SebosInstrInfo::expandUnaryALUPseudo(MachineInstr &MI,
   moveIntoALUOperand(MBB, MI, DL, Sebos::A, Src);
   BuildMI(MBB, MI, DL, get(RealOpc));
   moveIntoALUOperand(MBB, MI, DL, Dst, Sebos::A);
+
+  MI.eraseFromParent();
+  return true;
+}
+
+bool SebosInstrInfo::expandCondBranchPseudo(MachineInstr &MI,
+                                             unsigned RealOpc) const {
+  MachineBasicBlock &MBB = *MI.getParent();
+  DebugLoc DL = MI.getDebugLoc();
+  Register Lhs = MI.getOperand(0).getReg();
+  Register Rhs = MI.getOperand(1).getReg();
+  MachineBasicBlock *Dst = MI.getOperand(2).getMBB();
+
+  // Same A/TMP swap gap as expandBinaryALUPseudo -- see that function's
+  // comment. Not yet handled here either.
+  assert(!(Lhs == Sebos::TMP && Rhs == Sebos::A) &&
+         "Sebos: conditional branch pseudo expansion hit an A/TMP swap case");
+
+  moveIntoALUOperand(MBB, MI, DL, Sebos::TMP, Rhs);
+  moveIntoALUOperand(MBB, MI, DL, Sebos::A, Lhs);
+
+  BuildMI(MBB, MI, DL, get(RealOpc)).addMBB(Dst);
 
   MI.eraseFromParent();
   return true;
