@@ -33,7 +33,7 @@ MCInstrInfo *llvm::createSebosMCInstrInfo() {
   return X;
 }
 
-MCRegisterInfo *llvm::createSebosMCRegisterInfo() {
+MCRegisterInfo *llvm::createSebosMCRegisterInfo(const Triple &TT) {
   MCRegisterInfo *X = new MCRegisterInfo();
   InitSebosMCRegisterInfo(X, /*RA=*/0);
   return X;

@@ -1,12 +1,10 @@
 // SebosInstPrinter.cpp
 #include "SebosInstPrinter.h"
 #include "llvm/MC/MCInst.h"
+#include "llvm/MC/MCExpr.h"
 #include "llvm/Support/raw_ostream.h"
 
 using namespace llvm;
-
-#define PRINT_ALIAS_INSTR
-#include "SebosGenAsmWriter.inc"
 
 void SebosInstPrinter::printInst(const MCInst *MI, uint64_t Address,
                                   StringRef Annot, const MCSubtargetInfo &STI,
@@ -22,6 +20,6 @@ void SebosInstPrinter::printOperand(const MCInst *MI, unsigned OpNo,
     O << getRegisterName(Op.getReg());
   else if (Op.isImm())
     O << Op.getImm();
-  else
-    Op.getExpr()->print(O, nullptr);
+  else if(Op.isExpr())
+    O << Op.getExpr();
 }

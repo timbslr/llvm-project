@@ -8,6 +8,7 @@
 
 #include "SebosRegisterInfo.h"
 #include "SebosSubtarget.h"
+#include "SebosFrameLowering.h"
 #include "llvm/CodeGen/MachineFrameInfo.h"
 #include "llvm/CodeGen/MachineFunction.h"
 #include "llvm/CodeGen/MachineInstrBuilder.h"

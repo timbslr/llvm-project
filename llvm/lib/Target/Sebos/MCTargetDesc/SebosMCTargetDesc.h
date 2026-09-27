@@ -12,7 +12,7 @@
 #include "llvm/Support/DataTypes.h"
 
 namespace llvm {
-
+class Triple;
 class MCInstrInfo;
 class MCRegisterInfo;
 class MCSubtargetInfo;
@@ -22,7 +22,7 @@ class Target;
 Target &getTheSebosTarget();
 
 MCInstrInfo *createSebosMCInstrInfo();
-MCRegisterInfo *createSebosMCRegisterInfo();
+MCRegisterInfo *createSebosMCRegisterInfo(const Triple &TT);
 
 } // namespace llvm
 

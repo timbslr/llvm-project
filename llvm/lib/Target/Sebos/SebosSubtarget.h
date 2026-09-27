@@ -31,7 +31,7 @@ class StringRef;
 class SebosSubtarget : public SebosGenSubtargetInfo {
   SebosRegisterInfo RegInfo;
 
-  void initSubtargetFeatures(StringRef CPU, StringRef FS);
+void ParseSubtargetFeatures(StringRef CPU, StringRef TuneCPU, StringRef FS);
 
 public:
   SebosSubtarget(const Triple &TT, StringRef CPU, StringRef FS,

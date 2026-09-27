@@ -14,6 +14,3 @@
 #include "llvm/MC/TargetRegistry.h"
 
 using namespace llvm;
-
-#define GET_INSTRINFO_CTOR_DTOR
-#include "SebosGenInstrInfo.inc"

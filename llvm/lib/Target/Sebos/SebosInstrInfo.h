@@ -11,6 +11,7 @@
 
 #include "SebosRegisterInfo.h"
 #include "llvm/CodeGen/TargetInstrInfo.h"
+#include "SebosSubtarget.h"
 
 #define GET_INSTRINFO_HEADER
 #include "SebosGenInstrInfo.inc"
@@ -21,7 +22,7 @@ class SebosInstrInfo : public SebosGenInstrInfo {
   const SebosRegisterInfo RI;
 
 public:
-  SebosInstrInfo();
+  SebosInstrInfo(const SebosSubtarget &STI);
 
   const SebosRegisterInfo &getRegisterInfo() const { return RI; }
 

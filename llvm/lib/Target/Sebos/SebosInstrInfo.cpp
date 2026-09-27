@@ -7,6 +7,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "SebosInstrInfo.h"
+#include "MCTargetDesc/SebosMCTargetDesc.h"
 #include "llvm/CodeGen/MachineFrameInfo.h"
 #include "llvm/CodeGen/MachineFunction.h"
 #include "llvm/CodeGen/MachineInstrBuilder.h"
@@ -17,8 +18,11 @@
 
 using namespace llvm;
 
-SebosInstrInfo::SebosInstrInfo()
-    : SebosGenInstrInfo(Sebos::ADJCALLSTACKDOWN, Sebos::ADJCALLSTACKUP), RI() {}
+SebosInstrInfo::SebosInstrInfo(const SebosSubtarget &STI)
+    : SebosGenInstrInfo(STI, *STI.getRegisterInfo(), Sebos::ADJCALLSTACKDOWN,
+                         Sebos::ADJCALLSTACKUP, /*CatchRetOpcode=*/~0u,
+                         /*ReturnOpcode=*/Sebos::RET),
+      RI() {}
 // NOTE: ADJCALLSTACKDOWN/UP don't exist in SebosInstrInfo.td yet -- these
 // are the standard pseudo-instructions bracketing outgoing-argument stack
 // adjustment around a call. Needed once the calling convention's call
@@ -30,8 +34,8 @@ SebosInstrInfo::SebosInstrInfo()
 
 void SebosInstrInfo::copyPhysReg(MachineBasicBlock &MBB, MachineBasicBlock::iterator MI,
                   const DebugLoc &DL, Register DestReg, Register SrcReg,
-                  bool KillSrc, bool RenamableDest = false,
-                  bool RenamableSrc = false) const {
+                  bool KillSrc, bool RenamableDest,
+                  bool RenamableSrc) const {
 
   unsigned Opc = 0;
 
@@ -126,8 +130,7 @@ void SebosInstrInfo::storeRegToStackSlot(MachineBasicBlock &MBB,
                           MachineBasicBlock::iterator MI, Register SrcReg,
                           bool isKill, int FrameIndex,
                           const TargetRegisterClass *RC, Register VReg,
-                          MachineInstr::MIFlag Flags =
-                              MachineInstr::NoFlags) const {
+                          MachineInstr::MIFlag Flags) const {
 
   DebugLoc DL = MI != MBB.end() ? MI->getDebugLoc() : DebugLoc();
   BuildMI(MBB, MI, DL, get(Sebos::STSPRELU))
@@ -140,8 +143,7 @@ void SebosInstrInfo::loadRegFromStackSlot(MachineBasicBlock &MBB,
                            MachineBasicBlock::iterator MI, Register DestReg,
                            int FrameIndex, const TargetRegisterClass *RC,
                            Register VReg, unsigned SubIdx,
-                           MachineInstr::MIFlag Flags =
-                               MachineInstr::NoFlags) const {
+                           MachineInstr::MIFlag Flags) const {
   DebugLoc DL = MI != MBB.end() ? MI->getDebugLoc() : DebugLoc();
   BuildMI(MBB, MI, DL, get(Sebos::LDSPRELU), DestReg)
       .addFrameIndex(FrameIndex)

@@ -21,6 +21,8 @@
 
 namespace llvm {
 
+class Module;
+class SebosTargetMachine;
 FunctionPass *createSebosISelDag(SebosTargetMachine &TM, CodeGenOptLevel OptLevel);
 
 class SebosTargetMachine : public CodeGenTargetMachineImpl {
