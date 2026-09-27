@@ -11,8 +11,10 @@
 
 using namespace llvm;
 
-bool SebosDAGToDAGISel::SelectAddrFI(SDValue Addr, SDValue &Base,
-                                      SDValue &Offset) {
+char SebosDAGToDAGISel::ID = 0;
+
+bool SebosDAGToDAGISelImpl::SelectAddrFI(SDValue Addr, SDValue &Base,
+                                          SDValue &Offset) {
   if (auto *FIN = dyn_cast<FrameIndexSDNode>(Addr)) {
     Base = CurDAG->getTargetFrameIndex(
         FIN->getIndex(), TLI->getPointerTy(CurDAG->getDataLayout()));
@@ -25,7 +27,7 @@ bool SebosDAGToDAGISel::SelectAddrFI(SDValue Addr, SDValue &Base,
         Base = CurDAG->getTargetFrameIndex(
             FIN->getIndex(), TLI->getPointerTy(CurDAG->getDataLayout()));
         Offset = CurDAG->getTargetConstant(CN->getSExtValue(), SDLoc(Addr),
-                                            MVT::i8);
+                                           MVT::i8);
         return true;
       }
     }
@@ -33,16 +35,14 @@ bool SebosDAGToDAGISel::SelectAddrFI(SDValue Addr, SDValue &Base,
   return false;
 }
 
-void SebosDAGToDAGISel::Select(SDNode *N) {
+void SebosDAGToDAGISelImpl::Select(SDNode *N) {
   // Let the TableGen-generated matcher (built from every Pat<>/Pattern in
   // SebosInstrInfo.td) try first; only fall through to hand-written cases
   // for anything it can't express.
   SelectCode(N);
 }
 
-// Factory function -- this is what SebosTargetMachine.cpp's
-// createPassConfig()/addInstSelector() has been calling since the very
-// start of this backend.
+// Factory function returning FunctionPass*
 FunctionPass *llvm::createSebosISelDag(SebosTargetMachine &TM,
                                         CodeGenOptLevel OptLevel) {
   return new SebosDAGToDAGISel(TM, OptLevel);

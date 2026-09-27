@@ -16,9 +16,10 @@
 
 namespace llvm {
 
-class SebosDAGToDAGISel : public SelectionDAGISel {
+// 1. Implementation class contains the actual selection logic
+class SebosDAGToDAGISelImpl : public SelectionDAGISel {
 public:
-  SebosDAGToDAGISel(SebosTargetMachine &TM, CodeGenOptLevel OptLevel)
+  SebosDAGToDAGISelImpl(SebosTargetMachine &TM, CodeGenOptLevel OptLevel)
       : SelectionDAGISel(TM, OptLevel) {}
 
   bool SelectAddrFI(SDValue Addr, SDValue &Base, SDValue &Offset);
@@ -27,6 +28,15 @@ public:
   void Select(SDNode *N) override;
 
 #include "SebosGenDAGISel.inc"
+};
+
+// 2. Legacy pass wrapper that inherits from FunctionPass (via SelectionDAGISelLegacy)
+class SebosDAGToDAGISel : public SelectionDAGISelLegacy {
+public:
+  static char ID;
+
+  SebosDAGToDAGISel(SebosTargetMachine &TM, CodeGenOptLevel OptLevel)
+      : SelectionDAGISelLegacy(ID, std::make_unique<SebosDAGToDAGISelImpl>(TM, OptLevel)) {}
 };
 
 } // namespace llvm
